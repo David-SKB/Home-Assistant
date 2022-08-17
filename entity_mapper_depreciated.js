@@ -1,4 +1,4 @@
-// Global Variable Entity Mapper (v1.6)
+// Global Variable Entity Mapper (v1.6) [DEPRECIATED - moved functionality to entity_filter]
 // Maps msg.payload value to global variable using msg.global_id 
 // for automations
 // ******************************************************************
