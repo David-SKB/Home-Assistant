@@ -1,4 +1,4 @@
-// Generic Input Select Entity Mapper (v1.4)
+// Generic Input Select Entity Mapper
 // Maps input_select text value to entity_id for automations
 // ******************************************************************
 // -*- INPUTS -*-
@@ -19,12 +19,12 @@ if (inputSelectEntity != null) {
     // Set global variable
     setGlobalVariable(global_id, inputSelectEntity);
     // Return details in new msg
-    newMsg = { payload: inputSelectEntity};
-    newMsg = { global_id: global_id};
+    var newMsg = { payload: inputSelectEntity};
+    newMsg.global_id = global_id;
     return newMsg;
 } else {
     // Error? Log
-    node.warn('Invalid/Missing Entity Mapping: '+ inputSelectEntity);
+    node.warn('Invalid/Missing Entity Mapping: '+ inputSelectEntity + ' please ensure mapping is lowercase');
     return null
 }
 ///////////////////////////////////
@@ -35,12 +35,15 @@ if (inputSelectEntity != null) {
 //
 function getEntity (entityStr){
   var entities = msg.entities;
+  if (msg.timeout) {
+      return msg.payload;
+  }
   if (entities == null) {
         return entities;
   }
   //node.warn('default');
   //node.warn(entities[entityStr.toLowerCase()] || entities['default']);
-  return (entities[entityStr.toLowerCase()] || entities['default']);
+    return (entities[entityStr.toLowerCase()] || entities['default']);
 }
 //
 // Global ID Retrieval Function (v1.1)
