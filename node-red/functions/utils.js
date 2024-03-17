@@ -1,9 +1,10 @@
-// Commonly used Utility Functions
+// Simple Utility Functions
 
 // Default to utils object if no UTIL_GC environment variable passed
 var utilGlobalContext = exists(env.get("UTIL_GC")) ? env.get("UTIL_GC") : "utils";
 var objectID = append(utilGlobalContext, ".");
 
+// General
 global.set(objectID + "helloWorld", helloWorld);
 global.set(objectID + "round", round);
 global.set(objectID + "getGlobalID", getGlobalID);
@@ -12,9 +13,20 @@ global.set(objectID + "status", status);
 global.set(objectID + "setAttribute", setAttribute);
 global.set(objectID + "append", append);
 global.set(objectID + "abate", abate);
-//global.set(objectID + "getGlobalID", round);
-//global.set(objectID + "getGlobalID", round);
-//global.set(objectID + "getGlobalID", round);
+global.set(objectID + "getFileNameFromPath", getFileNameFromPath);
+global.set(objectID + "mapArrayToDict", mapArrayToDict);
+global.set(objectID + "currentState", currentState);
+
+// API
+global.set(objectID + "createResponseObject", createResponseObject);
+
+// .yaml template generation
+global.set(objectID + "generateToggleSwitchValueTemplate", generateToggleSwitchValueTemplate);
+global.set(objectID + "generateTemplateSwitchObject", generateTemplateSwitchObject);
+global.set(objectID + "generateYamlTemplateObject", generateYamlTemplateObject);
+global.set(objectID + "addEntityToTemplateObject", addEntityToTemplateObject);
+global.set(objectID + "createTurnOnOffObject", createTurnOnOffObject);
+global.set(objectID + "createIconTemplate", createIconTemplate);
 
 var loaded = false;
 var gc = global.keys();
@@ -79,7 +91,7 @@ function exists(value) {
     }
 
     // null check
-    if (valueType === null) return false;
+    if (value === null) return false;
 
     // undefined check
     if (valueType === "undefined") return false;
@@ -147,4 +159,96 @@ function abate(value, character) {
 
     return value;
 
+}
+
+function createResponseObject(response_code, message) {
+    return {
+        "response_code": response_code,
+        "data": message
+    }
+}
+
+function generateToggleSwitchValueTemplate(toggleEntityId, triggerEntityId, triggerEntityState) {
+    return `{% if is_state('${toggleEntityId}', 'on') %}
+        {{ is_state('${triggerEntityId}', '${triggerEntityState}') }}
+        {% else %}
+        {{ is_state('${toggleEntityId}', 'on') }}
+        {% endif %}`;
+}
+
+function generateTemplateSwitchObject(switchId, friendlyName, valueTemplate, turnOnAction, turnOffAction, iconTemplate) {
+    const switchObject = {
+        [switchId]: {
+            friendly_name: friendlyName,
+            value_template: valueTemplate,
+            turn_on: [turnOnAction],
+            turn_off: [turnOffAction],
+            icon_template: iconTemplate
+        }
+    };
+    return switchObject;
+}
+
+function generateYamlTemplateObject(entity_type) {
+    const yamlObject = {
+        platform: 'template',
+        [entity_type]: {}
+    };
+    return [yamlObject];
+}
+
+function addEntityToTemplateObject(yamlObject, entity_type, entity) {
+    yamlObject[0][entity_type] = {
+        ...yamlObject[0][entity_type],
+        ...entity
+    };
+    return yamlObject;
+}
+
+function createTurnOnOffObject(service, data = {}) {
+    return {
+        turn_on: [
+            {
+                service: service,
+                ...data.turn_on // Spread additional turn_on data if provided
+            }
+        ],
+        turn_off: [
+            {
+                service: service,
+                ...data.turn_off // Spread additional turn_off data if provided
+            }
+        ]
+    };
+}
+
+function createIconTemplate(onStateIcon, offStateIcon = null, triggerEntityId = null, triggerEntityState = null) {
+    if (!offStateIcon) {
+        return `mdi:${onStateIcon}`;
+    } else {
+        return `{% if is_state('${triggerEntityId}', '${triggerEntityState}') %}
+            mdi:${onStateIcon}
+        {% else %}
+            mdi:${offStateIcon}
+        {% endif %}`;
+    }
+}
+
+function getFileNameFromPath(filePath) {
+    const parts = filePath.split('/');
+    return parts[parts.length - 1];
+}
+
+function mapArrayToDict(entities, key) {
+    const entityDict = {};
+
+    entities.forEach(entity => {
+        entityDict[entity[key]] = entity;
+    });
+
+    return entityDict;
+}
+
+function currentState(entityId) {
+    return global.get("homeassistant.homeAssistant.states")[entityId];
 }

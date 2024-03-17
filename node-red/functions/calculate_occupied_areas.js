@@ -14,33 +14,43 @@
 const utils = global.get("utils");
 const occupancyTimeout = msg.payload.occupancy_timeout;
 
-// Return if no system_occupancy_timeout present in input
+// Return if no occupancy_timeout present in payload
 if (!utils.exists(occupancyTimeout)){
+
     return [null, utils.status("missing occupancy_timeout property in payload")];
+
 }
 
 // Main logic to check area occupancy
+let occupancy = msg.payload.occupancy;
 let areas = msg.payload.areas;
 const entities = msg.payload.entities;
-var areasOccupied = 0;
+let areasOccupied = 0;
 
-// Check each area for occupancy
+// Calculate occupancy for each area
 for (const areaId in areas) {
-
+    
     const area = areas[areaId];
     area.occupied = isAreaOccupied(area, entities, occupancyTimeout);
     if (area.occupied.state) areasOccupied++;
 
+    // Update occupied object within occupancy object
+    occupancy.occupied = setOccupied(occupancy.occupied, area.occupied.last_occupied, occupancyTimeout);
+    
+    // Check if the current area is the last_occupied and set the area_id
+    if (occupancy.occupied.last_occupied == area.occupied.last_occupied) occupancy.occupied.area_id = area.id;
+    
 }
 
-// Return the result (areas object with an added "occupied" attribute and last_occupied object)
-msg.payload = areas;
+occupancy.areas = areas;
 
+// Return the resulting occupancy object
+msg.payload = occupancy;
 return [msg, utils.status(`[areas occupied: ${areasOccupied}]`)];
 /*** END ***/
 
 
-/*** HELPER FUNCTIONS ***/
+/*** HELPERS ***/
 
 // Helper function to check if an area is occupied
 function isAreaOccupied(area, entities, occupancyTimeout) {
@@ -50,31 +60,15 @@ function isAreaOccupied(area, entities, occupancyTimeout) {
 
     for (const entity in entitiesInArea){
 
-        var state = utils.currentState(entitiesInArea[entity].entity_id);
+        let state = utils.currentState(entitiesInArea[entity].entity_id);
         if (state.state == "on") return {state: true, last_occupied: Date.now()};
-
-        var lastChanged = utils.exists(state.last_changed) ? state.last_changed : state.last_updated;
-
-        if (!utils.exists(lastChanged)) {
-            
-            node.warn("last_changed/updated not found, defaulting to current timestamp");
-            lastChanged = Date.now();
-
-        }
-        
-        lastChanged = new Date(lastChanged).getTime();
-        const lastMotionTimeThreshold = Date.now() - occupancyTimeout;
-
-        // Area is occupied
-        if (lastChanged > lastMotionTimeThreshold) {
-
-            return { state: true, last_occupied: updateLastOccupied(area, lastChanged) };
-
-        };
+        let lastChanged = utils.exists(state.last_changed) ? state.last_changed : state.last_updated;
+        return setOccupied(area.occupied, lastChanged, occupancyTimeout);
 
     }
-    
-    return { state: false, last_occupied: updateLastOccupied(area, lastChanged) };
+
+    return setOccupied(area.occupied, null, occupancyTimeout);
+    //return { state: false, last_occupied: updateLastOccupied(area.occupied, lastChanged) };
 
 }
 
@@ -104,28 +98,33 @@ function getEntitiesInArea(area, entities) {
 
 }
 
-// Helper function to update the last occupied zone
-function updateLastOccupied(area, occupied) {
+// Helper function to update the occupied object
+function setOccupied(occupied, lastChanged, timeout) {
+    
+    const lastMotionTimeThreshold = Date.now() - timeout;
 
-    // Set current value as last_occupied if it doesnt already exist
-    if (!utils.exists(area.occupied) || !utils.exists(area.occupied.last_occupied)) return occupied;
+    if (utils.exists(lastChanged)) lastChanged = new Date(lastChanged).getTime();
 
-    // Set current value as last_occupied if timestamp is more recent
-    if (occupied > area.occupied.last_occupied) return occupied;
+    // Create occupied object if it doesnt exist
+    if (!utils.exists(occupied)) {
 
-    return area.occupied.last_occupied;
+        occupied = {
+            state: false,
+            last_occupied:lastChanged
+        };
 
-}
+    }
 
-function setLastOccupied(area, timestamp){
+    occupied.last_updated = Date.now();
 
-    global.set("system.occupancy.last_occupied", {area, timestamp});
+    // Set occupied state if within threshold
+    if (utils.exists(lastChanged) && (lastChanged > lastMotionTimeThreshold)) {
+        
+        occupied.state = true;
+        occupied.last_occupied = lastChanged;
 
-}
+    }
 
-function setLastOccupied2(area, timestamp) {
-
-    area.occupied.last_occupied = timestamp;
-    return area;
+    return occupied;
 
 }
