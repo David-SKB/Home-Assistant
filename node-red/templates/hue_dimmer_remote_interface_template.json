@@ -1,0 +1,61 @@
+{
+    "remotes": {
+      "default": {
+        "buttons": {
+          "on": {
+            "commands": {
+              "short_release": {
+                "action": {  }
+              },
+              "double_press": {
+                "action": {  }
+              },
+              "hold": {
+                "action": {  }
+              }
+            }
+          },
+          "up": {
+            "commands": {
+              "short_release": {
+                "action": {  }
+              },
+              "double_press": {
+                "action": {  }
+              },
+              "hold": {
+                "action": {  }
+              }
+            }
+          },
+          "down": {
+            "commands": {
+              "short_release": {
+                "action": {  }
+              },
+              "double_press": {
+                "action": {  }
+              },
+              "hold": {
+                "action": {  }
+              }
+            }
+          },
+          "off": {
+            "commands": {
+              "short_release": {
+                "action": {  }
+              },
+              "double_press": {
+                "action": {  }
+              },
+              "hold": {
+                "action": {  }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  

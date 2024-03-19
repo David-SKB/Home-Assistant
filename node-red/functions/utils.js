@@ -120,6 +120,16 @@ function abate(value, character) {
 
 }
 
+// Cast Object to array
+function castToArray(value) {
+    return (Array.isArray(value)) ? value : [value];
+}
+
+// Function to get attribute values from event data
+function getEventAttributes(event, attributes) {
+    return attributes.map(attr => event[attr]);
+}
+
 function createResponseObject(response_code, message) {
     return {
         "response_code": response_code,
@@ -372,7 +382,6 @@ class RemoteInterface {
     }
 }
 
-
 // Validation functions
 function validateRemote(remoteConfig) {
     if (typeof remoteConfig !== 'object' || remoteConfig === null) {
@@ -414,6 +423,66 @@ function validateCommand(commandConfig) {
     return true;
 }
 
+class DeviceManager {
+    constructor(mapping = {}) {
+        this.devices = mapping;
+    }
+
+    setDevice(device_id, remote_id) {
+        this.devices[device_id] = remote_id;
+    }
+
+    getDevice(device_id) {
+        return this.devices[device_id];
+    }
+
+    removeDevice(device_id) {
+        if (this.devices.hasOwnProperty(device_id)) {
+            delete this.devices[device_id];
+        }
+    }
+
+    getDevices() {
+        return this.devices;
+    }
+}
+
+class DebounceTimerManager {
+    constructor() {
+        this.timers = {};
+    }
+
+    createTimer(attributeValues, debounceTimers, callback, delay) {
+        let nestedObject = debounceTimers;
+        for (const attrValue of attributeValues) {
+            nestedObject[attrValue] = nestedObject[attrValue] || {};
+            nestedObject = nestedObject[attrValue];
+        }
+        if (!nestedObject.hasOwnProperty('timer')) {
+            nestedObject.timer = setTimeout(callback, delay);
+        }
+    }
+
+    updateTimer(attributeValues, debounceTimers, callback, delay) {
+        this.clearTimer(attributeValues, debounceTimers);
+        this.createTimer(attributeValues, debounceTimers, callback, delay);
+    }
+
+    clearTimer(attributeValues, debounceTimers) {
+        let nestedObject = debounceTimers;
+        for (const attrValue of attributeValues) {
+            if (!nestedObject[attrValue]) {
+                return;
+            }
+            nestedObject = nestedObject[attrValue];
+        }
+        if (nestedObject.timer) {
+            clearTimeout(nestedObject.timer);
+            delete nestedObject.timer;
+        }
+    }
+}
+
 // General
 global.set(objectID + "helloWorld", helloWorld);
 global.set(objectID + "round", round);
@@ -426,6 +495,8 @@ global.set(objectID + "abate", abate);
 global.set(objectID + "getFileNameFromPath", getFileNameFromPath);
 global.set(objectID + "mapArrayToDict", mapArrayToDict);
 global.set(objectID + "currentState", currentState);
+global.set(objectID + "castToArray", castToArray);
+global.set(objectID + "getEventAttributes", getEventAttributes);
 
 // API
 global.set(objectID + "createResponseObject", createResponseObject);
@@ -443,6 +514,12 @@ global.set(objectID + "RemoteInterface", RemoteInterface);
 global.set(objectID + "Remote", Remote);
 global.set(objectID + "Button", Button);
 global.set(objectID + "Command", Command);
+
+// Device Manager
+global.set(objectID + "DeviceManager", DeviceManager);
+
+// DebounceTimerManager
+global.set(objectID + "DebounceTimerManager", DebounceTimerManager);
 
 var loaded = false;
 var gc = global.keys();
