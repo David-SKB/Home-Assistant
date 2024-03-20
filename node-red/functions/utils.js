@@ -292,9 +292,7 @@ class Command {
     }
 
     getObject() {
-        return {
-            action: { ...this.action }
-        };
+        return this.action;
     }
 }
 
@@ -355,6 +353,26 @@ class RemoteInterface {
             };
         }
         return new Command(buttonId, commandId);
+    }
+
+    getCommand(remoteId, buttonId, commandId) {
+        const remote = this.remotes[remoteId];
+
+        if (!remote) {
+            throw new Error(`Remote not found for ID ${remoteId}`);
+        }
+
+        const button = remote.buttons[buttonId];
+        if (!button) {
+            throw new Error(`Button not found for ID ${buttonId}`);
+        }
+
+        const command = button.commands[commandId];
+        if (!command) {
+            throw new Error(`Command not found for ID ${commandId}`);
+        }
+
+        return command;
     }
 
     getRemoteIds() {
@@ -428,8 +446,8 @@ class DeviceManager {
         this.devices = mapping;
     }
 
-    setDevice(device_id, remote_id) {
-        this.devices[device_id] = remote_id;
+    setDevice(device_id, data) {
+        this.devices[device_id] = data;
     }
 
     getDevice(device_id) {

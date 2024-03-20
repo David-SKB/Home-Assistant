@@ -9,8 +9,6 @@ class Command {
     }
 
     getObject() {
-        return {
-            action: { ...this.action }
-        };
+        return this.action;
     }
 }
