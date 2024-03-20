@@ -1,4 +1,4 @@
-// Remote Generator Interface (v1.1)
+// Remote Generator Interface (v1.2)
 // Interface for creating / managing remote configurations
 // ******************************************************************
 // -*- INPUTS -*-
@@ -15,7 +15,8 @@
 
 /*** START ***/
 const utils = global.get("utils");
-const config = new utils.RemoteInterface(msg.payload.config) || "generic";
+
+const config = new utils.RemoteInterface(global.get(msg.payload.global_id)) || "generic";
 const remote_id = msg.payload.remote_id || "default";
 let buttons = msg.payload.buttons;
 let commands = msg.payload.commands;
@@ -45,7 +46,7 @@ buttons.forEach(buttonId => {
 
     // Get actions for this button
     const button_actions = actions[`${buttonId}`] || {};
-    commands.forEach(commandId => {
+    Object.keys(button_actions).forEach(commandId => {
 
         const command = button.addCommand(commandId);
         if (button_actions.hasOwnProperty(commandId)) {
@@ -56,9 +57,9 @@ buttons.forEach(buttonId => {
 
 // Add remote to config
 config.setRemote(remote.getId(), remote);
-
 // Return generated remote object
-msg.payload = config.getObject();
+//msg.payload = config.getObject();
+msg.payload = remote.getObject();
 return [msg, utils.status(status)];
 /*** END ***/
 

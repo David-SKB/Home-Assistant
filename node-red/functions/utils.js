@@ -223,19 +223,23 @@ function currentState(entityId) {
 }
 
 class Remote {
-    constructor(remoteId, buttons = []) {
+    constructor(remoteId, buttons = {}) {
         this.remoteId = remoteId;
-        this.buttons = buttons;
+        this.buttons = {};
+
+        // Check if buttons is an instance of Remote, if not, convert each entry to a Button instance
+        if (!(buttons instanceof Remote)) {
+            for (const buttonId in buttons) {
+                if (buttons.hasOwnProperty(buttonId)) {
+                    this.addButton(buttonId, buttons[buttonId]);
+                }
+            }
+        }
     }
 
     addButton(buttonId, sourceButton = null) {
-        const button = new Button(buttonId);
-        if (sourceButton) {
-            sourceButton.commands.forEach(sourceCommand => {
-                button.addCommand(sourceCommand.commandId, sourceCommand);
-            });
-        }
-        this.buttons.push(button);
+        const button = sourceButton instanceof Button ? sourceButton : new Button(buttonId, sourceButton);
+        this.buttons[buttonId] = button;
         return button;
     }
 
@@ -245,26 +249,31 @@ class Remote {
 
     getObject() {
         const remoteObject = {};
-        this.buttons.forEach(button => {
-            remoteObject[button.getId()] = button.getObject();
+        Object.keys(this.buttons).forEach(buttonId => {
+            remoteObject[buttonId] = this.buttons[buttonId].getObject();
         });
         return remoteObject;
     }
 }
 
 class Button {
-    constructor(buttonId, commands = []) {
+    constructor(buttonId, commands = {}) {
         this.buttonId = buttonId;
-        this.commands = commands;
+        this.commands = {};
+
+        // Check if commands is an instance of Button, if not, convert each entry to a Command instance
+        if (!(commands instanceof Button)) {
+            for (const commandId in commands) {
+                if (commands.hasOwnProperty(commandId)) {
+                    this.addCommand(commandId, commands[commandId]);
+                }
+            }
+        }
     }
 
     addCommand(commandId, sourceCommand = null) {
-        const command = new Command(commandId);
-        if (sourceCommand) {
-            // Copy properties from source command to new command
-            command.action = { ...sourceCommand.action };
-        }
-        this.commands.push(command);
+        const command = sourceCommand instanceof Command ? sourceCommand : new Command(commandId, sourceCommand);
+        this.commands[commandId] = command;
         return command;
     }
 
@@ -274,8 +283,8 @@ class Button {
 
     getObject() {
         const buttonObject = {};
-        this.commands.forEach(command => {
-            buttonObject[command.getId()] = command.getObject();
+        Object.keys(this.commands).forEach(commandId => {
+            buttonObject[commandId] = this.commands[commandId].getObject();
         });
         return buttonObject;
     }
@@ -299,60 +308,52 @@ class Command {
 
 class RemoteInterface {
     constructor(remoteConfig = {}) {
-        this.remotes = remoteConfig.remotes || {};
+        this.remotes = {};
+        if (remoteConfig instanceof Remote) {
+            this.setRemote(remoteConfig.getId(), remoteConfig);
+        } else {
+            const remotes = remoteConfig.remotes || {};
+            Object.keys(remotes).forEach(remoteId => {
+                this.setRemote(remoteId, remotes[remoteId]);
+            });
+        }
     }
+
 
     setRemote(remoteId, sourceRemote = null) {
         if (sourceRemote instanceof Remote) {
-            this.remotes[remoteId] = sourceRemote.getObject();
+            this.remotes[remoteId] = sourceRemote;
         } else if (sourceRemote) {
+
             if (!validateRemote(sourceRemote)) {
                 throw new Error('Invalid remote configuration');
             }
-            this.remotes[remoteId] = sourceRemote;
+            this.remotes[remoteId] = new Remote(remoteId, sourceRemote);
         } else {
-            this.remotes[remoteId] = {
-                buttons: {}
-            };
+            this.remotes[remoteId] = new Remote(remoteId);
         }
-        return new Remote(remoteId, []);
+        return this.remotes[remoteId];
     }
 
     setButton(remoteId, buttonId, sourceButton = null) {
         if (!this.remotes[remoteId]) {
-            this.createRemote(remoteId);
+            this.setRemote(remoteId); // Ensure remote exists before setting button
         }
-        if (sourceButton) {
-            if (!validateButton(sourceButton)) {
-                throw new Error('Invalid button configuration');
-            }
-            this.remotes[remoteId].buttons[buttonId] = sourceButton;
-        } else {
-            this.remotes[remoteId].buttons[buttonId] = {
-                commands: {}
-            };
-        }
-        return new Button(remoteId, buttonId);
+        const button = this.remotes[remoteId].addButton(buttonId, sourceButton);
+        return button;
     }
+
 
     setCommand(remoteId, buttonId, commandId, sourceCommand = null) {
         if (!this.remotes[remoteId]) {
-            this.createRemote(remoteId);
+            this.setRemote(remoteId);
         }
         if (!this.remotes[remoteId].buttons[buttonId]) {
-            this.createButton(remoteId, buttonId);
+            this.setButton(remoteId, buttonId);
         }
-        if (sourceCommand) {
-            if (!validateCommand(sourceCommand)) {
-                throw new Error('Invalid command configuration');
-            }
-            this.remotes[remoteId].buttons[buttonId].commands[commandId] = sourceCommand;
-        } else {
-            this.remotes[remoteId].buttons[buttonId].commands[commandId] = {
-                action: {}
-            };
-        }
-        return new Command(buttonId, commandId);
+        const button = this.remotes[remoteId].buttons[buttonId];
+        const command = button.addCommand(commandId, sourceCommand);
+        return command;
     }
 
     getCommand(remoteId, buttonId, commandId) {
@@ -379,9 +380,23 @@ class RemoteInterface {
         return Object.keys(this.remotes);
     }
 
-    getButtonIds(remoteId) {
+    // Ignore this, it's for debugging
+    getButtonIds2(remoteId) {
         if (this.remotes[remoteId]) {
             return Object.keys(this.remotes[remoteId].buttons);
+        }
+        return [];
+    }
+
+    getButtonIds(remoteId) {
+        if (this.remotes[remoteId]) {
+            if (this.remotes[remoteId] instanceof Button) {
+                // If the value is an instance of Button, return its ID
+                return [this.remotes[remoteId].getId()];
+            } else {
+                // Otherwise, assume it's an object with button IDs as keys
+                return Object.keys(this.remotes[remoteId]);
+            }
         }
         return [];
     }
@@ -402,43 +417,81 @@ class RemoteInterface {
 
 // Validation functions
 function validateRemote(remoteConfig) {
-    if (typeof remoteConfig !== 'object' || remoteConfig === null) {
-        return false;
+    if (remoteConfig instanceof Remote) {
+        // If remoteConfig is already an instance of Remote, it's valid
+        return true;
+    } else if (typeof remoteConfig === 'object' && remoteConfig !== null) {
+        const remoteInstance = new Remote('remoteId');
+
+        // Iterate over each button in the remote
+        Object.keys(remoteConfig).forEach(buttonId => {
+            const commandConfigs = remoteConfig[buttonId];
+            const buttonInstance = new Button(buttonId);
+
+            // Iterate over each command in the button
+            Object.keys(commandConfigs).forEach(commandId => {
+                const commandInstance = new Command(commandId, commandConfigs[commandId]);
+
+                // Add the command to the button
+                buttonInstance.addCommand(commandId, commandInstance);
+            });
+
+            // Add the button to the remote
+            remoteInstance.addButton(buttonId, buttonInstance);
+        });
+
+        // Validate the remote instance
+        const isValid = validateRemote(remoteInstance);
+        return isValid;
+    } else {
+        return false; // Invalid remote configuration
     }
-    if (!remoteConfig.hasOwnProperty('buttons') || typeof remoteConfig.buttons !== 'object' || remoteConfig.buttons === null) {
-        return false;
-    }
-    for (const buttonId in remoteConfig.buttons) {
-        if (!remoteConfig.buttons.hasOwnProperty(buttonId)) {
-            continue;
-        }
-        const buttonConfig = remoteConfig.buttons[buttonId];
-        if (typeof buttonConfig !== 'object' || buttonConfig === null) {
-            return false;
-        }
-        if (!buttonConfig.hasOwnProperty('commands') || typeof buttonConfig.commands !== 'object' || buttonConfig.commands === null) {
-            return false;
-        }
-    }
-    return true;
 }
 
+
+
 function validateButton(buttonConfig) {
-    if (typeof buttonConfig !== 'object' || buttonConfig === null) {
-        return false;
+    if (buttonConfig instanceof Button) {
+        // If buttonConfig is an instance of Button class, we'll validate its commands
+        for (const commandId in buttonConfig.commands) {
+            if (!buttonConfig.commands.hasOwnProperty(commandId)) {
+                continue;
+            }
+            const command = buttonConfig.commands[commandId];
+            if (!(command instanceof Command)) {
+                return false; // Invalid command within the button
+            }
+            // Optionally, add specific validation logic for command configuration here
+        }
+        return true; // All checks passed
+    } else if (typeof buttonConfig === 'object' && buttonConfig !== null && buttonConfig.hasOwnProperty('commands')) {
+        // If buttonConfig is an object representation, we'll recursively call validateCommand for each command
+        for (const commandId in buttonConfig.commands) {
+            if (!buttonConfig.commands.hasOwnProperty(commandId)) {
+                continue;
+            }
+            if (!validateCommand(buttonConfig.commands[commandId])) {
+                return false; // Invalid command configuration
+            }
+        }
+        return true; // All checks passed
+    } else {
+        return false; // Invalid button configuration
     }
-    if (!buttonConfig.hasOwnProperty('commands') || typeof buttonConfig.commands !== 'object' || buttonConfig.commands === null) {
-        return false;
-    }
-    return true;
 }
 
 function validateCommand(commandConfig) {
-    if (typeof commandConfig !== 'object' || commandConfig === null) {
-        return false;
+    if (commandConfig instanceof Command) {
+        // If commandConfig is an instance of Command class, it's valid
+        return true;
+    } else if (typeof commandConfig === 'object' && commandConfig !== null) {
+        // If commandConfig is an object representation, we'll check its properties
+        if (commandConfig.hasOwnProperty('commandId') && commandConfig.hasOwnProperty('action')) {
+            // Optionally, add specific validation logic for command configuration here
+            return true; // All checks passed
+        }
     }
-    // Add any specific validation logic for command configuration
-    return true;
+    return false; // Invalid command configuration
 }
 
 class DeviceManager {

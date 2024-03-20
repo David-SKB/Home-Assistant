@@ -56,8 +56,8 @@ const debounceManager = new utils.DebounceTimerManager();
 const global_id = env.get("GLOBAL_ID") || "debounce_timers";
 
 // Retrieve filter attributes
-//const attributes_array = env.get("FILTER_ATTRIBUTES");
-const attributes_array = ["device_id", "command"];
+const attributes_array = env.get("FILTER_ATTRIBUTES");
+//const attributes_array = ["device_id", "command"];
 
 // Store debounce timers for each combination of attribute values
 var debounce_timers = global.get(global_id) || {};

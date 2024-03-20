@@ -19,13 +19,8 @@ const event = msg.payload.event;
 
 // Extract device, button, and command information from the event
 const device_id = event.device_id;
-node.warn(`device_id: ${device_id}`);
-
 const button_id = event.args.button || "on"; // Default to "on" if no button is specified
-node.warn(`button_id: ${button_id}`);
-
 const command_id = event.command;
-node.warn(`command_id: ${command_id}`);
 
 try {
 
@@ -33,26 +28,19 @@ try {
     const deviceTypeManager = new utils.DeviceManager(remote_interface.device_type);
 
     const device_type = deviceTypeManager.getDevice(device_id);
-    node.warn(`device_type: ${device_type}`);
-
-    const deviceRemoteManager = new utils.DeviceManager(remote_interface[device_type]["devices"]);
-    const remote_id = deviceRemoteManager.getDevice(device_id);
-    node.warn(`remote_id: ${remote_id}`);
 
     // Get the remote ID for the device from deviceRemoteManager
-    const remote = remote_interface[device_type][remote_id];
-    node.warn(`remote: ${remote}`);
+    const deviceRemoteManager = new utils.DeviceManager(remote_interface[device_type]["devices"]);
+    const remote_id = deviceRemoteManager.getDevice(device_id);
 
     // Instantiate RemoteInterface
-    const remoteInterface = new utils.RemoteInterface(remote);
+    const remoteInterface = new utils.RemoteInterface(remote_interface[device_type]);
 
     // Get the command object from RemoteInterface
     const command = remoteInterface.getCommand(remote_id, button_id, command_id);
-    node.warn(`command: ${command}`);
-
+    
     // Extract the action from the command and assign it to msg.payload
     msg.payload = command.action;
-    node.warn(`msg.payload: ${msg.payload}`);
 
     // Send the message downstream
     return msg;
